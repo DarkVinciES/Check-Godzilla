@@ -1,0 +1,51 @@
+name: Godzilla ticket watcher
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # every 10 minutes (GitHub may run it a few minutes late)
+  workflow_dispatch:          # lets you press "Run workflow" by hand
+    inputs:
+      test_alert:
+        description: "Send a test alert instead of checking"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write             # needed to save found.txt so you're alerted only once
+
+concurrency:
+  group: godzilla-watch
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check Scope Cinemas
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ "${{ inputs.test_alert }}" = "true" ]; then
+            python check_godzilla.py --test
+          else
+            python check_godzilla.py
+          fi
+
+      - name: Save "found" marker
+        run: |
+          if [ -f found.txt ] && [ -n "$(git status --porcelain found.txt)" ]; then
+            git config user.name "godzilla-bot"
+            git config user.email "godzilla-bot@users.noreply.github.com"
+            git add found.txt
+            git commit -m "Godzilla found on Scope Cinemas"
+            git push
+          fi
