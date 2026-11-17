@@ -5,7 +5,11 @@ Checks these two pages every 10 minutes and pushes an alert to your phone when "
 - https://www.scopecinemas.com/movies/coming-soon
 - https://www.scopecinemas.com/movies/now-showing
 
-It alerts **once**, then saves `found.txt` so you aren't spammed. Delete `found.txt` to re-arm it.
+It alerts **once per page**:
+1. When Godzilla first shows up on **Coming Soon**: "listed as Coming Soon".
+2. When it shows up on **Now Showing**: "tickets are out".
+
+Each alert is recorded in `found.txt` so you aren't spammed. After both alerts it stops checking. Delete `found.txt` to re-arm it.
 
 ## Setup (GitHub, about 5 minutes, free, runs with your PC off)
 
