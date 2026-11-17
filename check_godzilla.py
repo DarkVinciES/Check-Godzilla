@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Watches Scope Cinemas (Sri Lanka) for a Godzilla Minus Zero listing and sends
-a phone alert when it appears on the Coming Soon or Now Showing page.
+one phone alert per page: when it first appears on Coming Soon, and again when
+it appears on Now Showing (tickets out). found.txt records which pages alerted.
 
 Alerts go to:
   - ntfy (free phone push app)  -> set env NTFY_TOPIC
@@ -49,7 +50,8 @@ def fetch(url: str) -> str:
 def page_text(raw_html: str) -> str:
     """Drop scripts/styles and tags, keep visible text plus alt/title attributes."""
     raw_html = re.sub(r"(?is)<(script|style|noscript)\b.*?</\1>", " ", raw_html)
-    attrs = " ".join(re.findall(r'(?i)(?:alt|title)\s*=\s*"([^"]*)"', raw_html))
+    attrs = " ".join(v for _, v in re.findall(
+        r"""(?i)(?:alt|title)\s*=\s*(["'])(.*?)\1""", raw_html))
     text = re.sub(r"(?s)<[^>]+>", " ", raw_html)
     return html.unescape(re.sub(r"\s+", " ", text + " " + attrs))
 
@@ -101,15 +103,61 @@ def notify(title: str, message: str, click_url: str) -> None:
         print(title, message, click_url, sep="\n")
 
 
+# One alert per page. Now Showing is the "tickets are out" alert.
+ALERTS = {
+    "Coming Soon": ("GODZILLA is listed as Coming Soon on Scope!",
+                    "Tickets may not be on sale yet. You'll get another alert "
+                    "when it moves to Now Showing."),
+    "Now Showing": ("GODZILLA tickets are out on Scope Cinemas!",
+                    "It's on Now Showing. Go book tickets!"),
+}
+
+
+def load_state() -> dict:
+    """Pages already alerted, as {page: {"at": ..., "snippets": [...]}}."""
+    if not os.path.exists(STATE_FILE):
+        return {}
+    with open(STATE_FILE, encoding="utf-8") as f:
+        raw = f.read()
+    try:
+        data = json.loads(raw)
+        if isinstance(data, dict):
+            return data
+    except ValueError:
+        pass
+    # Old format (one alert for any page): "<time> UTC" line + {page: snippets} line.
+    lines = raw.splitlines()
+    for line in lines:
+        try:
+            old = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(old, dict) and old:
+            at = lines[0] if lines else ""
+            return {page: {"at": at, "snippets": s} for page, s in old.items()}
+    return {"Coming Soon": {"at": raw.strip(), "snippets": []}}
+
+
+def save_state(state: dict) -> None:
+    with open(STATE_FILE, "w", encoding="utf-8") as f:
+        json.dump(state, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+
+
 def check_once() -> bool:
-    """Returns True if Godzilla was found (and alerted) this run."""
-    if os.path.exists(STATE_FILE):
-        print("Already alerted earlier (found.txt exists). Delete it to re-arm.")
+    """Returns True when every page has been alerted (nothing left to watch)."""
+    state = load_state()
+    pending = {n: u for n, u in PAGES.items() if n not in state}
+    if not pending:
+        print("Already alerted for every page (see found.txt). Delete it to re-arm.")
         return True
+    for name in PAGES:
+        if name in state:
+            print(f"{name}: already alerted at {state[name].get('at', '?')}")
 
     hits = {}
     errors = []
-    for name, url in PAGES.items():
+    for name, url in pending.items():
         try:
             matches = find_matches(page_text(fetch(url)))
             print(f"{name}: {'FOUND' if matches else 'not listed yet'}")
@@ -120,21 +168,21 @@ def check_once() -> bool:
             print(f"{name}: ERROR {e}")
 
     if hits:
-        where = " and ".join(hits)
-        first_url = next(iter(hits.values()))[0]
+        # If both turn up in the same run, send one alert using the tickets wording.
+        main_page = "Now Showing" if "Now Showing" in hits else next(iter(hits))
+        title, note = ALERTS[main_page]
         detail = "\n".join(f"[{n}] {s}" for n, (_, ms) in hits.items() for s in ms)
-        notify(
-            "GODZILLA is on Scope Cinemas!",
-            f"Listed on: {where}\n\n{detail}\n\nGo book tickets!",
-            first_url,
-        )
-        with open(STATE_FILE, "w", encoding="utf-8") as f:
-            f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} UTC\n{json.dumps({k: v[1] for k, v in hits.items()}, ensure_ascii=False)}\n")
-        return True
+        notify(title, f"Listed on: {' and '.join(hits)}\n\n{detail}\n\n{note}",
+               hits[main_page][0])
+        now = time.strftime("%Y-%m-%d %H:%M:%S") + " UTC"
+        for name, (_, ms) in hits.items():
+            state[name] = {"at": now, "snippets": ms}
+        save_state(state)
+        return all(n in state for n in PAGES)
 
-    if len(errors) == len(PAGES):
-        # Both pages failed: fail loudly so GitHub emails you about the broken run.
-        sys.exit("Could not load either page:\n" + "\n".join(errors))
+    if len(errors) == len(pending):
+        # Every page still being watched failed: fail loudly so GitHub emails you.
+        sys.exit("Could not load the page(s):\n" + "\n".join(errors))
     return False
 
 
@@ -152,7 +200,7 @@ def main() -> None:
             print(time.strftime("%Y-%m-%d %H:%M:%S"), "checking...")
             try:
                 if check_once():
-                    print("Found it. Stopping the loop.")
+                    print("Alerted for every page. Stopping the loop.")
                     return
             except SystemExit as e:
                 print(e)  # keep looping on network errors in PC mode
