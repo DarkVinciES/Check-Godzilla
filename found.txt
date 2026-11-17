@@ -1,0 +1,10 @@
+{
+  "Coming Soon": {
+    "at": "2026-11-17 17:34:50 UTC",
+    "snippets": [
+      "Releasing 20 November 2026 Buy Tickets GODZILLA MINUS ZERO Releasing 20 November 2026 See More Buy Tickets",
+      "g 20 November 2026 See More Buy Tickets GODZILLA MINUS ZERO Releasing 20 November 2026 Buy Tickets JUMANJI:",
+      "GAMES: SUNRISE ON THE REAPING The movie GODZILLA MINUS ZERO The movie GODZILLA MINUS ZERO The movie JUMANJI:"
+    ]
+  }
+}
