@@ -6,5 +6,13 @@
       "g 20 November 2026 See More Buy Tickets GODZILLA MINUS ZERO Releasing 20 November 2026 Buy Tickets JUMANJI:",
       "GAMES: SUNRISE ON THE REAPING The movie GODZILLA MINUS ZERO The movie GODZILLA MINUS ZERO The movie JUMANJI:"
     ]
+  },
+  "Now Showing": {
+    "at": "2026-11-19 20:53:52 UTC",
+    "snippets": [
+      "RESIDENT EVIL In Theaters Now See More GODZILLA MINUS ZERO In Theaters Now See More Buy Tickets GODZILLA MI",
+      "RO In Theaters Now See More Buy Tickets GODZILLA MINUS ZERO In Theaters Now Buy Tickets SPYING STARS - ඔත්තු",
+      "EVIL The movie RESIDENT EVIL The movie GODZILLA MINUS ZERO The movie GODZILLA MINUS ZERO The movie SPYING S"
+    ]
   }
 }
